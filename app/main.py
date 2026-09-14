@@ -1,9 +1,6 @@
-from typing import Annotated
-
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.auth import require_user
+from app.routers.project import router as projects_router
 
 app = FastAPI(
     title="RAG Platform API",
@@ -20,16 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(projects_router)
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-    }
-
-@app.get("/me")
-async def me(
-    user_id: Annotated[str, Depends(require_user)],
-):
-    return {
-        "user_id": user_id,
     }
