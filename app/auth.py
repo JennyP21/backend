@@ -1,4 +1,5 @@
 from fastapi import HTTPException, Request, status
+
 from clerk_backend_api import (
     authenticate_request,
     AuthenticateRequestOptions,
@@ -22,5 +23,19 @@ def require_user(request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized",
         )
+        
+    if not auth_state.payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
 
-    return auth_state.payload["sub"]
+    user_id = auth_state.payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
+    return user_id

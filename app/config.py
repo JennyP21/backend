@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     clerk_secret_key: str
     clerk_jwt_key: str
     clerk_authorized_parties: str
+    
+    database_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -20,5 +22,4 @@ class Settings(BaseSettings):
             if party.strip()
         ]
 
-
-settings = Settings()
+settings = Settings() # pyright: ignore[reportCallIssue]

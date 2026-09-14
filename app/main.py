@@ -25,7 +25,7 @@ def health():
     return {
         "status": "ok",
     }
-    
+
 @app.get("/me")
 async def me(
     user_id: Annotated[str, Depends(require_user)],
