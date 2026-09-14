@@ -1,3 +1,9 @@
-from app.models.project import Project
+# app/models/__init__.py
 
-__all__ = ["Project"]
+from app.models.project import Project
+from app.models.document import Document
+
+__all__ = [
+    "Project",
+    "Document",
+]
