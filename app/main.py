@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.project import router as projects_router
+from app.routers.project import router as project_router
+from app.routers.document import router as document_router
 
 app = FastAPI(
     title="RAG Platform API",
@@ -17,7 +18,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(projects_router)
+app.include_router(project_router)
+app.include_router(document_router)
 
 @app.get("/health")
 def health():

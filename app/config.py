@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     clerk_secret_key: str
     clerk_jwt_key: str
     clerk_authorized_parties: str
+    aws_region: str
+    aws_s3_bucket_name: str
     
     database_url: str
 
