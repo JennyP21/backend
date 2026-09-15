@@ -1,7 +1,10 @@
 import uuid
+from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, UploadFile, status
+from fastapi import (APIRouter, HTTPException, Query, Response, UploadFile,
+                     status)
+from sqlalchemy import select
 
 from app.dependencies import CurrentUserId, DbSession, Storage
 from app.models.document import Document
@@ -57,6 +60,45 @@ async def download_document(
         url=url,
         expires_in=expires_in,
     )
+
+@router.get(
+    "/projects/{project_id}/documents",
+    response_model=list[DocumentResponse],
+)
+async def list_documents(
+    project_id: UUID,
+    user_id: CurrentUserId,
+    db: DbSession,
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=100,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+):
+    await get_owned_project(
+        db=db,
+        user_id=user_id,
+        project_id=project_id,
+    )
+
+    result = await db.execute(
+        select(Document)
+        .where(
+            Document.project_id == project_id,
+            Document.deleted_at.is_(None),
+        )
+        .order_by(
+            Document.created_at.desc()
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+
+    return result.scalars().all()
 
 @router.post(
     "/projects/{project_id}/documents",
@@ -165,4 +207,36 @@ async def upload_document(
     finally:
         await file.close()
     
-    
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_document(
+    document_id: UUID,
+    user_id: CurrentUserId,
+    db: DbSession,
+    storage: Storage,
+):
+    document = await get_owned_document(
+        db=db,
+        user_id=user_id,
+        document_id=document_id,
+    )
+
+    storage_key = document.storage_key
+
+    document.deleted_at = datetime.now(timezone.utc)
+
+    await db.commit()
+
+    try:
+        await storage.delete(
+            key=storage_key,
+        )
+    except Exception:
+        # Later: log this and enqueue storage cleanup retry.
+        pass
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT
+    )
