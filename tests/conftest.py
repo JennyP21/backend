@@ -40,6 +40,14 @@ class FakeStorage:
         key: str,
     ) -> None:
         self.files.pop(key, None)
+        
+    async def generate_download_url(
+        self,
+        *,
+        key: str,
+        expires_in: int = 300,
+    ) -> str:
+        return f"https://fake-storage.local/{key}"
 
 @pytest.fixture
 def fake_storage():

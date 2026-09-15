@@ -23,3 +23,11 @@ class StorageService(Protocol):
         key: str,
     ) -> None:
         ...
+    
+    async def generate_download_url(
+        self,
+        *,
+        key: str,
+        expires_in: int = 300,
+    ) -> str:
+        ...

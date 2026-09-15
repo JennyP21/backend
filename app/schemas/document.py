@@ -30,3 +30,7 @@ class DocumentResponse(BaseModel):
     
     created_at: datetime
     updated_at: datetime
+
+class DocumentDownloadResponse(BaseModel):
+    url: str
+    expires_in: int

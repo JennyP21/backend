@@ -5,7 +5,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.dependencies import CurrentUserId, DbSession, Storage
 from app.models.document import Document
-from app.schemas.document import DocumentResponse
+from app.schemas.document import DocumentDownloadResponse, DocumentResponse
+from app.services.document import get_owned_document
 from app.services.project import get_owned_project
 
 router = APIRouter(
@@ -13,6 +14,49 @@ router = APIRouter(
 )
 
 MAX_FILE_SIZE = 30 * 1024 * 1024
+
+@router.get(
+    "/documents/{document_id}",
+    response_model=DocumentResponse,
+)
+async def get_document(
+    document_id: UUID,
+    user_id: CurrentUserId,
+    db: DbSession
+):
+    return await get_owned_document(
+        db=db,
+        user_id=user_id,
+        document_id=document_id
+    )
+
+@router.get(
+    "/documents/{document_id}/download",
+    response_model=DocumentDownloadResponse,
+)
+async def download_document(
+    document_id: UUID,
+    user_id: CurrentUserId,
+    db: DbSession,
+    storage: Storage,
+):
+    document = await get_owned_document(
+        db=db,
+        user_id=user_id,
+        document_id=document_id,
+    )
+
+    expires_in = 300
+
+    url = await storage.generate_download_url(
+        key=document.storage_key,
+        expires_in=expires_in,
+    )
+
+    return DocumentDownloadResponse(
+        url=url,
+        expires_in=expires_in,
+    )
 
 @router.post(
     "/projects/{project_id}/documents",

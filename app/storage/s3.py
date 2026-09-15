@@ -51,3 +51,18 @@ class S3StorageService:
             Bucket=self.bucket,
             Key=key,
         )
+    
+    async def generate_download_url(
+        self,
+        *,
+        key: str,
+        expires_in: int = 300,
+    ) -> str:
+        return self.client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": self.bucket,
+                "Key": key,
+            },
+            ExpiresIn=expires_in,
+        )
