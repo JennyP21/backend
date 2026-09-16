@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     clerk_authorized_parties: str
     aws_region: str
     aws_s3_bucket_name: str
+    redis_url: str
+    celery_broker_url: str
+    celery_result_backend: str
     
     database_url: str
 
