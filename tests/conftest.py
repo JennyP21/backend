@@ -10,9 +10,26 @@ from sqlalchemy.pool import NullPool
 from app.auth import require_user
 from app.db.session import get_db
 from app.main import app
+from app.queue.dependencies import get_task_queue
 from app.storage.dependencies import get_storage
 from tests.settings import test_settings
 
+class FakeTaskQueue:
+    def __init__(self):
+        self.job_ids = []
+
+    async def enqueue_ingestion(
+        self,
+        *,
+        job_id,
+    ) -> str:
+        self.job_ids.append(job_id)
+
+        return f"fake-task-{job_id}"
+
+@pytest.fixture
+def fake_task_queue():
+    return FakeTaskQueue()
 
 class FakeStorage:
     def __init__(self):
@@ -100,6 +117,7 @@ async def client(
     db_session: AsyncSession,
     auth_user,
     fake_storage,
+    fake_task_queue
 ):
     async def override_get_db():
         yield db_session
@@ -109,10 +127,14 @@ async def client(
     
     def override_get_storage():
         return fake_storage
+    
+    def override_get_task_queue():
+        return fake_task_queue
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[require_user] = override_require_user
     app.dependency_overrides[get_storage] = override_get_storage
+    app.dependency_overrides[get_task_queue] = override_get_task_queue
     
     try:
         async with AsyncClient(
