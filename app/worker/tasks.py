@@ -2,9 +2,8 @@ import asyncio
 import sys
 from uuid import UUID
 
+from app.services.ingestion import process_ingestion_job, run_ingestion_job
 from app.worker.celery_app import celery_app
-from app.services.ingestion import process_ingestion_job
-
 
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
@@ -32,7 +31,7 @@ def process_ingestion_job_task(
     loop = get_worker_event_loop()
 
     loop.run_until_complete(
-        process_ingestion_job(
+        run_ingestion_job(
             UUID(job_id)
         )
     )
