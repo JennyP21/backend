@@ -8,25 +8,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.models.document import Document, DocumentStatus
 from app.models.ingestion_job import IngestionJob, IngestionJobStatus
+from app.services.document_processor import process_document
+from app.storage.dependencies import get_storage
 
 IngestionProcessor = Callable[
     [Document],
     Awaitable[None]
 ]
 
-async def placeholder_processor(
-    document: Document,
-) -> None:
-    return None
-
 async def run_ingestion_job(
     job_id: UUID,
 ) -> None:
+    storage = get_storage()
+    
+    async def processor(
+        document: Document,
+    ) -> None:
+        await process_document(
+            document=document,
+            storage=storage
+        )
+    
     async with AsyncSessionLocal() as db:
         await process_ingestion_job(
             db=db,
             job_id=job_id,
-            processor=placeholder_processor,
+            processor=processor,
         )
 
 async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: IngestionProcessor) -> None:

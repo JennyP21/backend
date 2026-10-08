@@ -12,7 +12,6 @@ def require_user(request: Request) -> str:
         request,
         AuthenticateRequestOptions(
             secret_key=settings.clerk_secret_key,
-            jwt_key=settings.clerk_jwt_key,
             authorized_parties=settings.authorized_parties,
             accepts_token=["session_token"],
         ),

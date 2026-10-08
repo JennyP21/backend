@@ -6,6 +6,7 @@ from app.models.ingestion_job import (
     IngestionJob,
     IngestionJobStatus,
 )
+from app.services.document_processor import process_document
 from app.services.ingestion import process_ingestion_job
 
 
@@ -210,3 +211,71 @@ async def test_completed_job_is_not_processed_again(
     )
 
     assert call_count == 1
+
+async def test_ingestion_job_fails_when_storage_download_fails(
+    client,
+    db_session,
+    fake_storage,
+):
+    project_response = await client.post(
+        "/projects",
+        json={"name": "Knowledge Base"},
+    )
+
+    project_id = project_response.json()["id"]
+
+    upload_response = await client.post(
+        f"/projects/{project_id}/documents",
+        files={
+            "file": (
+                "guide.pdf",
+                b"%PDF-1.4 content",
+                "application/pdf",
+            ),
+        },
+    )
+
+    document_id = upload_response.json()["id"]
+
+    await client.post(
+        f"/projects/{project_id}/ingestion-batches"
+    )
+
+    result = await db_session.execute(
+        select(IngestionJob).where(
+            IngestionJob.document_id == document_id
+        )
+    )
+
+    job = result.scalar_one()
+
+    document_result = await db_session.execute(
+        select(Document).where(
+            Document.id == document_id
+        )
+    )
+
+    document = document_result.scalar_one()
+
+    # Simulate the S3 object disappearing.
+    fake_storage.files.clear()
+
+    async def processor(document):
+        await process_document(
+            document=document,
+            storage=fake_storage,
+        )
+
+    with pytest.raises(KeyError):
+        await process_ingestion_job(
+            db=db_session,
+            job_id=job.id,
+            processor=processor,
+        )
+
+    await db_session.refresh(job)
+    await db_session.refresh(document)
+
+    assert job.status == IngestionJobStatus.FAILED
+    assert document.status == DocumentStatus.FAILED
+    assert job.error_message is not None
