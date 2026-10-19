@@ -13,6 +13,8 @@ from app.models.ingestion_batch import (
     IngestionBatchStatus,
 )
 
+from tests.ingestion.test_document_processor import FakePdfParser
+
 async def test_process_ingestion_job_success(
     client,
     db_session,
@@ -293,6 +295,7 @@ async def test_ingestion_job_fails_when_storage_download_fails(
         await process_document(
             document=document,
             storage=fake_storage,
+            parser=FakePdfParser()
         )
 
     with pytest.raises(KeyError):

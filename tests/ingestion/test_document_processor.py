@@ -4,7 +4,36 @@ import pytest
 
 from app.models.document import Document
 from app.services.document_processor import process_document
+from app.parsing.base import (
+    ParsedDocument,
+    ParsedElement,
+)
 
+class FakePdfParser:
+    def parse(
+        self,
+        content: bytes,
+    ) -> ParsedDocument:
+        return ParsedDocument(
+            page_count=3,
+            elements=[
+                ParsedElement(
+                    category="Title",
+                    text="RAG Architecture",
+                    page_number=1,
+                ),
+                ParsedElement(
+                    category="NarrativeText",
+                    text="Retrieval augmented generation...",
+                    page_number=1,
+                ),
+                ParsedElement(
+                    category="NarrativeText",
+                    text="Embeddings are stored...",
+                    page_number=2,
+                ),
+            ],
+        )
 
 async def test_process_document_downloads_pdf(
     fake_storage,
@@ -38,10 +67,18 @@ async def test_process_document_downloads_pdf(
         metadata_={},
     )
 
-    await process_document(
+    parsed = await process_document(
         document=document,
         storage=fake_storage,
+        parser=FakePdfParser(),
     )
+
+    assert document.page_count == 3
+    assert parsed.page_count == 3
+    assert len(parsed.elements) == 3
+
+    assert parsed.elements[0].category == "Title"
+    assert parsed.elements[0].page_number == 1
     
 async def test_process_document_rejects_empty_file(
     fake_storage,
@@ -78,6 +115,7 @@ async def test_process_document_rejects_empty_file(
         await process_document(
             document=document,
             storage=fake_storage,
+            parser=FakePdfParser(),
         )
     
 async def test_process_document_rejects_non_pdf_content(
@@ -117,4 +155,5 @@ async def test_process_document_rejects_non_pdf_content(
         await process_document(
             document=document,
             storage=fake_storage,
+            parser=FakePdfParser()
         )

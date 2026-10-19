@@ -9,6 +9,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.document import Document, DocumentStatus
 from app.models.ingestion_batch import IngestionBatch, IngestionBatchStatus
 from app.models.ingestion_job import IngestionJob, IngestionJobStatus
+from app.parsing.unstructured_parser import UnstructuredPdfParser
 from app.services.document_processor import process_document
 from app.storage.dependencies import get_storage
 
@@ -20,22 +21,29 @@ IngestionProcessor = Callable[
 async def run_ingestion_job(
     job_id: UUID,
 ) -> None:
-    storage = get_storage()
-    
-    async def processor(
-        document: Document,
-    ) -> None:
-        await process_document(
-            document=document,
-            storage=storage
-        )
-    
     async with AsyncSessionLocal() as db:
-        await process_ingestion_job(
-            db=db,
-            job_id=job_id,
-            processor=processor,
-        )
+        async def processor(
+            document: Document,
+        ) -> None:
+            
+            storage = get_storage()
+            
+            parser = UnstructuredPdfParser(
+                strategy="fast"
+            )
+            
+            await process_document(
+                document=document,
+                storage=storage,
+                parser=parser
+            )
+        
+        async with AsyncSessionLocal() as db:
+            await process_ingestion_job(
+                db=db,
+                job_id=job_id,
+                processor=processor,
+            )
 
 async def update_ingestion_batch_status(
     db: AsyncSession,
