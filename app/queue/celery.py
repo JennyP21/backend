@@ -1,7 +1,7 @@
 import asyncio
 from uuid import UUID
 
-from app.worker.tasks import process_ingestion_job_task
+from app.worker.celery_app import celery_app
 
 
 class CeleryTaskQueue:
@@ -11,8 +11,9 @@ class CeleryTaskQueue:
         job_id: UUID,
     ) -> str:
         result = await asyncio.to_thread(
-            process_ingestion_job_task.delay,
-            str(job_id),
+            celery_app.send_task,
+            "raglab.process_ingestion_job",
+            args=[str(job_id)],
         )
 
         return result.id
