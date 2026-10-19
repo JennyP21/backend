@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
     "boto3>=1.43.94",
+    "botocore[crt]>=1.43.94",
     "celery>=5.6.3",
     "clerk-backend-api>=7.0.0",
     "fastapi[standard]>=0.141.1",

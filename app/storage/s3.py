@@ -5,6 +5,10 @@ from app.config import settings
 class S3StorageService:
     def __init__(self) -> None:
         self.bucket = settings.aws_s3_bucket_name
+        
+        self.session = boto3.Session(
+            region_name=settings.aws_region,
+        )
 
         self.client = boto3.client(
             "s3",

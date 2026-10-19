@@ -2,11 +2,12 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
 from app.models.document import Document, DocumentStatus
+from app.models.ingestion_batch import IngestionBatch, IngestionBatchStatus
 from app.models.ingestion_job import IngestionJob, IngestionJobStatus
 from app.services.document_processor import process_document
 from app.storage.dependencies import get_storage
@@ -34,6 +35,102 @@ async def run_ingestion_job(
             db=db,
             job_id=job_id,
             processor=processor,
+        )
+
+async def update_ingestion_batch_status(
+    db: AsyncSession,
+    batch_id: UUID,
+) -> None:
+    batch_result = await db.execute(
+        select(IngestionBatch)
+        .where(
+            IngestionBatch.id == batch_id
+        )
+        .with_for_update()
+    )
+    
+    batch = batch_result.scalar_one_or_none()
+    
+    if batch is None:
+        return
+
+    result = await db.execute(
+        select(
+            IngestionJob.status,
+            func.count(IngestionJob.id),
+        )
+        .where(
+            IngestionJob.batch_id == batch_id
+        )
+        .group_by(
+            IngestionJob.status
+        )
+    )
+    
+    rows = result.all()
+    
+    counts = {
+        status: count
+        for status, count in rows
+    }
+    
+    queued = counts.get(
+        IngestionJobStatus.QUEUED,
+        0,
+    )
+
+    processing = counts.get(
+        IngestionJobStatus.PROCESSING,
+        0,
+    )
+
+    completed = counts.get(
+        IngestionJobStatus.COMPLETED,
+        0,
+    )
+
+    failed = counts.get(
+        IngestionJobStatus.FAILED,
+        0,
+    )
+    
+    total = (
+        queued
+        + processing
+        + completed
+        + failed
+    )
+    
+    if total == 0:
+        return
+    
+    if completed == total:
+        batch.status = (
+            IngestionBatchStatus.COMPLETED
+        )
+
+    elif failed == total:
+        batch.status = (
+            IngestionBatchStatus.FAILED
+        )
+
+    elif completed + failed == total:
+        batch.status = (
+            IngestionBatchStatus.PARTIALLY_FAILED
+        )
+
+    elif (
+        processing > 0
+        or completed > 0
+        or failed > 0
+    ):
+        batch.status = (
+            IngestionBatchStatus.PROCESSING
+        )
+
+    else:
+        batch.status = (
+            IngestionBatchStatus.QUEUED
         )
 
 async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: IngestionProcessor) -> None:
@@ -65,6 +162,13 @@ async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: Inges
         job.status = IngestionJobStatus.FAILED
         job.error_message = "Document not found"
         job.completed_at = datetime.now(timezone.utc)
+        
+        await db.flush()
+        
+        await update_ingestion_batch_status(
+            db=db,
+            batch_id=job.batch_id,
+        )
 
         await db.commit()
         return
@@ -76,6 +180,13 @@ async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: Inges
     
     document.status = DocumentStatus.PROCESSING
     
+    await db.flush()
+    
+    await update_ingestion_batch_status(
+        db=db,
+        batch_id=job.batch_id,
+    )
+    
     await db.commit()
     
     try:
@@ -85,6 +196,13 @@ async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: Inges
         job.completed_at = datetime.now(timezone.utc)
         
         document.status = DocumentStatus.READY
+        
+        await db.flush()
+
+        await update_ingestion_batch_status(
+            db=db,
+            batch_id=job.batch_id,
+        )
         
         await db.commit()
     
@@ -116,6 +234,13 @@ async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: Inges
         
         if document is not None:
             document.status = DocumentStatus.FAILED
+            
+        await db.flush()
+            
+        await update_ingestion_batch_status(
+            db=db,
+            batch_id=job.batch_id,
+        )
         
         await db.commit()
         
