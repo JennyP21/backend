@@ -72,16 +72,33 @@ class UnstructuredPdfParser:
             if not text:
                 continue
 
+            source_metadata = element.metadata
+            extra_metadata: dict[str, object] = {}
+
+            table_html = getattr(
+                source_metadata, "text_as_html", None
+            )
+            if table_html:
+                extra_metadata["text_as_html"] = table_html
+
+            category_depth = getattr(
+                source_metadata, "category_depth", None
+            )
+            if category_depth is not None:
+                extra_metadata["category_depth"] = category_depth
+
+            parent_id = getattr(
+                source_metadata, "parent_id", None
+            )
+            if parent_id is not None:
+                extra_metadata["parent_id"] = parent_id
+
             page_number = getattr(
-                element.metadata,
-                "page_number",
-                None,
+                source_metadata, "page_number", None
             )
 
             category = getattr(
-                element,
-                "category",
-                type(element).__name__,
+                element, "category", type(element).__name__
             )
 
             parsed_elements.append(
@@ -89,6 +106,7 @@ class UnstructuredPdfParser:
                     category=str(category),
                     text=text,
                     page_number=page_number,
+                    metadata=extra_metadata,
                 )
             )
 
