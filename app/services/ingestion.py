@@ -2,14 +2,16 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
 from app.models.document import Document, DocumentStatus
+from app.models.document_chunk import DocumentChunk
 from app.models.ingestion_batch import IngestionBatch, IngestionBatchStatus
 from app.models.ingestion_job import IngestionJob, IngestionJobStatus
 from app.parsing.unstructured_parser import UnstructuredPdfParser
+from app.services.chunking import DocumentChunker
 from app.services.document_processor import process_document
 from app.storage.dependencies import get_storage
 
@@ -32,18 +34,40 @@ async def run_ingestion_job(
                 strategy="fast"
             )
             
-            await process_document(
+            chunker = DocumentChunker()
+            
+            chunks = await process_document(
                 document=document,
                 storage=storage,
-                parser=parser
+                parser=parser,
+                chunker=chunker
             )
+            
+            chunk_records = [
+                DocumentChunk(
+                    project_id=document.project_id,
+                    document_id=document.id,
+                    chunk_index=idx,
+                    content=chunk.content,
+                    token_count=chunk.token_count,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                    metadata_=chunk.metadata,
+                )
+                for idx, chunk in enumerate(chunks)
+            ]
+            
+            await db.execute(
+                delete(DocumentChunk).where(DocumentChunk.document_id == document.id)
+            )
+            
+            db.add_all(chunk_records)
         
-        async with AsyncSessionLocal() as db:
-            await process_ingestion_job(
-                db=db,
-                job_id=job_id,
-                processor=processor,
-            )
+        await process_ingestion_job(
+            db=db,
+            job_id=job_id,
+            processor=processor
+        )
 
 async def update_ingestion_batch_status(
     db: AsyncSession,
@@ -141,7 +165,7 @@ async def update_ingestion_batch_status(
             IngestionBatchStatus.QUEUED
         )
 
-async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: IngestionProcessor) -> None:
+async def process_ingestion_job(db: AsyncSession, job_id: UUID, processor: IngestionProcessor ) -> None:
     result = await db.execute(
         select(IngestionJob).where(
             IngestionJob.id == job_id

@@ -1,13 +1,17 @@
 import asyncio
+
 from app.models.document import Document
-from app.parsing.base import ParsedDocument, PdfParser
+from app.parsing.base import PdfParser
+from app.services.chunking import DocumentChunker, TextChunk
 from app.storage.base import StorageService
+
 
 async def process_document(
     document: Document,
     storage: StorageService,
-    parser: PdfParser
-) -> ParsedDocument:
+    parser: PdfParser,
+    chunker: DocumentChunker
+) -> list[TextChunk]:
     content = await storage.download(
         key=document.storage_key,
     )
@@ -30,6 +34,14 @@ async def process_document(
     document.page_count = (
         parsed_document.page_count
     )
+    
+    chunks = await asyncio.to_thread(
+        chunker.chunk,
+        parsed_document
+    )
+    
+    if not chunks:
+        raise ValueError("No searchable content extracted from PDF")
         
-    return parsed_document
+    return chunks
     
