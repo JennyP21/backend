@@ -5,17 +5,14 @@ from tempfile import TemporaryDirectory
 from pypdf import PdfReader
 from unstructured.partition.pdf import partition_pdf
 
-from app.parsing.base import (
-    ParsedDocument,
-    ParsedElement,
-)
+from app.parsing.base import ParsedDocument, ParsedElement
 
 
 class UnstructuredPdfParser:
     def __init__(
         self,
         *,
-        strategy: str = "fast",
+        strategy: str = "hi_res",
     ) -> None:
         self.strategy = strategy
 
