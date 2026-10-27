@@ -3,11 +3,11 @@ import uuid
 import pytest
 
 from app.models.document import Document
+from app.parsing.base import ParsedDocument, ParsedElement
+from app.services.chunking import DocumentChunker
 from app.services.document_processor import process_document
-from app.parsing.base import (
-    ParsedDocument,
-    ParsedElement,
-)
+from tests.conftest import fake_chunker
+
 
 class FakePdfParser:
     def parse(
@@ -37,6 +37,7 @@ class FakePdfParser:
 
 async def test_process_document_downloads_pdf(
     fake_storage,
+    fake_chunker
 ):
     document_id = uuid.uuid4()
     project_id = uuid.uuid4()
@@ -67,21 +68,25 @@ async def test_process_document_downloads_pdf(
         metadata_={},
     )
 
-    parsed = await process_document(
+    chunks = await process_document(
         document=document,
         storage=fake_storage,
         parser=FakePdfParser(),
+        chunker=fake_chunker,
     )
-
+    # Document model was updated with page_count from parser
     assert document.page_count == 3
-    assert parsed.page_count == 3
-    assert len(parsed.elements) == 3
-
-    assert parsed.elements[0].category == "Title"
-    assert parsed.elements[0].page_number == 1
+    # Returned value is a list of TextChunk objects
+    assert len(chunks) == 1
+    assert chunks[0].page_start == 1
+    assert chunks[0].page_end == 2
+    assert chunks[0].token_count > 0
+    assert chunks[0].metadata_["heading_path"] == ["RAG Architecture"]
+    assert "Retrieval augmented generation..." in chunks[0].content
     
 async def test_process_document_rejects_empty_file(
     fake_storage,
+    fake_chunker
 ):
     document_id = uuid.uuid4()
     project_id = uuid.uuid4()
@@ -116,10 +121,12 @@ async def test_process_document_rejects_empty_file(
             document=document,
             storage=fake_storage,
             parser=FakePdfParser(),
+            chunker=fake_chunker
         )
     
 async def test_process_document_rejects_non_pdf_content(
     fake_storage,
+    fake_chunker
 ):
     document_id = uuid.uuid4()
     project_id = uuid.uuid4()
@@ -155,5 +162,6 @@ async def test_process_document_rejects_non_pdf_content(
         await process_document(
             document=document,
             storage=fake_storage,
-            parser=FakePdfParser()
+            parser=FakePdfParser(),
+            chunker=fake_chunker
         )

@@ -210,10 +210,14 @@ class DocumentChunker:
         heading_path: list[str],
     ) -> list[TextChunk]:
         docs = self._semantic_splitter.create_documents([content])
-        metadata: dict[str, object] = {"heading_path": heading_path}
-        chunks = []
+        metadata: dict[str, object] = {"heading_path": list(heading_path)}
+        chunks: list[TextChunk] = []
         for doc in docs:
-            text = doc.page_content
+            text = doc.page_content.strip()
+
+            if not text:
+                continue
+            
             token_count = self._count_tokens(text)
             
             if token_count <= self.max_tokens:

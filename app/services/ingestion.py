@@ -36,26 +36,12 @@ async def run_ingestion_job(
             
             chunker = DocumentChunker()
             
-            chunks = await process_document(
+            chunk_records = await process_document(
                 document=document,
                 storage=storage,
                 parser=parser,
                 chunker=chunker
             )
-            
-            chunk_records = [
-                DocumentChunk(
-                    project_id=document.project_id,
-                    document_id=document.id,
-                    chunk_index=idx,
-                    content=chunk.content,
-                    token_count=chunk.token_count,
-                    page_start=chunk.page_start,
-                    page_end=chunk.page_end,
-                    metadata_=chunk.metadata,
-                )
-                for idx, chunk in enumerate(chunks)
-            ]
             
             await db.execute(
                 delete(DocumentChunk).where(DocumentChunk.document_id == document.id)

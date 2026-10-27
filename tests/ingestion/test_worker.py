@@ -6,6 +6,7 @@ from app.models.ingestion_job import (
     IngestionJob,
     IngestionJobStatus,
 )
+from app.services.chunking import DocumentChunker
 from app.services.document_processor import process_document
 from app.services.ingestion import process_ingestion_job
 from app.models.ingestion_batch import (
@@ -13,6 +14,7 @@ from app.models.ingestion_batch import (
     IngestionBatchStatus,
 )
 
+from tests.conftest import fake_chunker
 from tests.ingestion.test_document_processor import FakePdfParser
 
 async def test_process_ingestion_job_success(
@@ -247,6 +249,7 @@ async def test_ingestion_job_fails_when_storage_download_fails(
     client,
     db_session,
     fake_storage,
+    fake_chunker
 ):
     project_response = await client.post(
         "/projects",
@@ -295,7 +298,8 @@ async def test_ingestion_job_fails_when_storage_download_fails(
         await process_document(
             document=document,
             storage=fake_storage,
-            parser=FakePdfParser()
+            parser=FakePdfParser(),
+            chunker=fake_chunker
         )
 
     with pytest.raises(KeyError):

@@ -4,6 +4,7 @@ import sys
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from langchain_core.embeddings import DeterministicFakeEmbedding
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -11,8 +12,10 @@ from app.auth import require_user
 from app.db.session import get_db
 from app.main import app
 from app.queue.dependencies import get_task_queue
+from app.services.chunking import DocumentChunker
 from app.storage.dependencies import get_storage
 from tests.settings import test_settings
+
 
 class FakeTaskQueue:
     def __init__(self):
@@ -145,3 +148,9 @@ async def client(
 
     finally:
         app.dependency_overrides.clear()
+        
+@pytest.fixture
+def fake_chunker() -> DocumentChunker:
+    return DocumentChunker(
+        embeddings=DeterministicFakeEmbedding(size=128),
+    )
