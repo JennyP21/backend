@@ -3,11 +3,12 @@
 from dataclasses import dataclass
 from html.parser import HTMLParser
 
-from langchain_openai import OpenAIEmbeddings
 import tiktoken
 from langchain_core.embeddings import Embeddings
 from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
 
+from app.config import settings
 from app.parsing.base import ParsedDocument, ParsedElement
 
 
@@ -76,11 +77,18 @@ class DocumentChunker:
         self.encoding = tiktoken.get_encoding(encoding_name)
         
         if embeddings is None:
-            embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+            if settings.openai_api_key is None:
+                raise ValueError("OPENAI_API_KEY is not configured")
+            
+            embeddings = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                api_key=settings.openai_api_key,
+            )
         
         self._semantic_splitter = SemanticChunker(
             embeddings=embeddings,
-            breakpoint_threshold_type="percentile"
+            breakpoint_threshold_type="percentile",
+            breakpoint_threshold_amount=70
         )
 
     def _count_tokens(self, text: str) -> int:
@@ -243,7 +251,9 @@ class DocumentChunker:
         if not texts:
             return []
         
-        combined = "\n\n".join(texts)
+        combined = "\n\n".join(texts).strip()
+        if not combined:
+            return []
         token_count = self._count_tokens(combined)
         metadata: dict[str, object] = {
             "heading_path": heading_path,

@@ -12,7 +12,7 @@ class UnstructuredPdfParser:
     def __init__(
         self,
         *,
-        strategy: str = "hi_res",
+        strategy,
     ) -> None:
         self.strategy = strategy
 

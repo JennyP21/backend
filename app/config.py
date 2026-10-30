@@ -1,5 +1,5 @@
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 class Settings(BaseSettings):
     clerk_secret_key: str
@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     redis_url: str
     celery_broker_url: str
     celery_result_backend: str
+    openai_api_key: SecretStr | None = None
     
     database_url: str
 
